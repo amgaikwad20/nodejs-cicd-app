@@ -7,36 +7,44 @@ pipeline {
         stage('Checkout') {
             steps {
                 deleteDir()
-
-                git branch: 'main',
-                    url: 'https://github.com/amgaikwad20/nodejs-cicd-app.git'
+                checkout scm
             }
         }
 
-        stage('Verify Files') {
+        stage('Check Workspace') {
             steps {
                 sh '''
                     echo "===== WORKSPACE ====="
                     pwd
-
                     echo "===== FILES ====="
-                    ls -la
+                    find . -maxdepth 2 -type f | sort
 
                     echo "===== PACKAGE FILES ====="
-                    ls -lh package.json package-lock.json
-
-                    echo "===== NODE ====="
-                    node --version
-
-                    echo "===== NPM ====="
-                    npm --version
+                    find . -name package.json -o -name package-lock.json
                 '''
             }
         }
 
         stage('Install Dependencies') {
             steps {
-                sh 'npm ci'
+                sh '''
+                    echo "===== INSTALL DEPENDENCIES ====="
+
+                    if [ ! -f package.json ]; then
+                        echo "ERROR: package.json not found"
+                        exit 1
+                    fi
+
+                    if [ ! -f package-lock.json ]; then
+                        echo "ERROR: package-lock.json not found"
+                        exit 1
+                    fi
+
+                    node --version
+                    npm --version
+
+                    npm ci
+                '''
             }
         }
 
@@ -51,10 +59,10 @@ pipeline {
                 withSonarQubeEnv('SonarQube') {
                     sh '''
                         sonar-scanner \
-                          -Dsonar.projectKey=nodejs-cicd-app \
-                          -Dsonar.sources=. \
-                          -Dsonar.tests=test \
-                          -Dsonar.exclusions=node_modules/**,coverage/**
+                        -Dsonar.projectKey=nodejs-cicd-app \
+                        -Dsonar.sources=. \
+                        -Dsonar.tests=test \
+                        -Dsonar.exclusions=node_modules/**,coverage/**
                     '''
                 }
             }
@@ -64,7 +72,7 @@ pipeline {
             steps {
                 sh '''
                     docker build \
-                      -t amgaikwad20/nodejs-cicd-app:${BUILD_NUMBER} .
+                    -t amgaikwad20/nodejs-cicd-app:${BUILD_NUMBER} .
                 '''
             }
         }
@@ -73,9 +81,9 @@ pipeline {
             steps {
                 sh '''
                     trivy image \
-                      --severity HIGH,CRITICAL \
-                      --exit-code 1 \
-                      amgaikwad20/nodejs-cicd-app:${BUILD_NUMBER}
+                    --severity HIGH,CRITICAL \
+                    --exit-code 1 \
+                    amgaikwad20/nodejs-cicd-app:${BUILD_NUMBER}
                 '''
             }
         }
@@ -91,11 +99,11 @@ pipeline {
                 ]) {
                     sh '''
                         echo "$DOCKER_PASSWORD" | docker login \
-                          -u "$DOCKER_USERNAME" \
-                          --password-stdin
+                        -u "$DOCKER_USERNAME" \
+                        --password-stdin
 
                         docker push \
-                          amgaikwad20/nodejs-cicd-app:${BUILD_NUMBER}
+                        amgaikwad20/nodejs-cicd-app:${BUILD_NUMBER}
                     '''
                 }
             }
@@ -105,18 +113,12 @@ pipeline {
             steps {
                 sh '''
                     sed -i \
-                      "s|image:.*|image: amgaikwad20/nodejs-cicd-app:${BUILD_NUMBER}|" \
-                      k8s/deployment.yaml
+                    "s|image:.*|image: amgaikwad20/nodejs-cicd-app:${BUILD_NUMBER}|" \
+                    k8s/deployment.yaml
 
                     kubectl apply -f k8s/
                 '''
             }
-        }
-    }
-
-    post {
-        always {
-            echo "Pipeline completed."
         }
     }
 }
