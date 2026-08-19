@@ -38,7 +38,10 @@ pipeline {
 
         stage('Docker Build') {
             steps {
-                sh 'docker build -t YOUR_DOCKERHUB_USERNAME/nodejs-cicd-app:${BUILD_NUMBER} .'
+                sh '''
+                    docker build \
+                    -t amgaikwad20/nodejs-cicd-app:${BUILD_NUMBER} .
+                '''
             }
         }
 
@@ -48,7 +51,7 @@ pipeline {
                     trivy image \
                     --severity HIGH,CRITICAL \
                     --exit-code 1 \
-                    YOUR_DOCKERHUB_USERNAME/nodejs-cicd-app:${BUILD_NUMBER}
+                    amgaikwad20/nodejs-cicd-app:${BUILD_NUMBER}
                 '''
             }
         }
@@ -68,7 +71,9 @@ pipeline {
                         --password-stdin
 
                         docker push \
-                        YOUR_DOCKERHUB_USERNAME/nodejs-cicd-app:${BUILD_NUMBER}
+                        amgaikwad20/nodejs-cicd-app:${BUILD_NUMBER}
+
+                        docker logout
                     '''
                 }
             }
@@ -78,12 +83,22 @@ pipeline {
             steps {
                 sh '''
                     sed -i \
-                    "s|image:.*|image: YOUR_DOCKERHUB_USERNAME/nodejs-cicd-app:${BUILD_NUMBER}|" \
+                    "s|image:.*|image: amgaikwad20/nodejs-cicd-app:${BUILD_NUMBER}|" \
                     k8s/deployment.yaml
 
                     kubectl apply -f k8s/
                 '''
             }
+        }
+    }
+
+    post {
+        success {
+            echo 'CI/CD PIPELINE COMPLETED SUCCESSFULLY'
+        }
+
+        failure {
+            echo 'PIPELINE FAILED - CHECK THE FAILED STAGE'
         }
     }
 }
