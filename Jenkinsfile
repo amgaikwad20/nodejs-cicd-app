@@ -6,7 +6,31 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                checkout scm
+                deleteDir()
+
+                git branch: 'main',
+                    url: 'https://github.com/amgaikwad20/nodejs-cicd-app.git'
+            }
+        }
+
+        stage('Verify Files') {
+            steps {
+                sh '''
+                    echo "===== WORKSPACE ====="
+                    pwd
+
+                    echo "===== FILES ====="
+                    ls -la
+
+                    echo "===== PACKAGE FILES ====="
+                    ls -lh package.json package-lock.json
+
+                    echo "===== NODE ====="
+                    node --version
+
+                    echo "===== NPM ====="
+                    npm --version
+                '''
             }
         }
 
@@ -27,10 +51,10 @@ pipeline {
                 withSonarQubeEnv('SonarQube') {
                     sh '''
                         sonar-scanner \
-                        -Dsonar.projectKey=nodejs-cicd-app \
-                        -Dsonar.sources=. \
-                        -Dsonar.tests=test \
-                        -Dsonar.exclusions=node_modules/**,coverage/**
+                          -Dsonar.projectKey=nodejs-cicd-app \
+                          -Dsonar.sources=. \
+                          -Dsonar.tests=test \
+                          -Dsonar.exclusions=node_modules/**,coverage/**
                     '''
                 }
             }
@@ -40,7 +64,7 @@ pipeline {
             steps {
                 sh '''
                     docker build \
-                    -t amgaikwad20/nodejs-cicd-app:${BUILD_NUMBER} .
+                      -t amgaikwad20/nodejs-cicd-app:${BUILD_NUMBER} .
                 '''
             }
         }
@@ -49,9 +73,9 @@ pipeline {
             steps {
                 sh '''
                     trivy image \
-                    --severity HIGH,CRITICAL \
-                    --exit-code 1 \
-                    amgaikwad20/nodejs-cicd-app:${BUILD_NUMBER}
+                      --severity HIGH,CRITICAL \
+                      --exit-code 1 \
+                      amgaikwad20/nodejs-cicd-app:${BUILD_NUMBER}
                 '''
             }
         }
@@ -67,13 +91,11 @@ pipeline {
                 ]) {
                     sh '''
                         echo "$DOCKER_PASSWORD" | docker login \
-                        -u "$DOCKER_USERNAME" \
-                        --password-stdin
+                          -u "$DOCKER_USERNAME" \
+                          --password-stdin
 
                         docker push \
-                        amgaikwad20/nodejs-cicd-app:${BUILD_NUMBER}
-
-                        docker logout
+                          amgaikwad20/nodejs-cicd-app:${BUILD_NUMBER}
                     '''
                 }
             }
@@ -83,8 +105,8 @@ pipeline {
             steps {
                 sh '''
                     sed -i \
-                    "s|image:.*|image: amgaikwad20/nodejs-cicd-app:${BUILD_NUMBER}|" \
-                    k8s/deployment.yaml
+                      "s|image:.*|image: amgaikwad20/nodejs-cicd-app:${BUILD_NUMBER}|" \
+                      k8s/deployment.yaml
 
                     kubectl apply -f k8s/
                 '''
@@ -93,12 +115,8 @@ pipeline {
     }
 
     post {
-        success {
-            echo 'CI/CD PIPELINE COMPLETED SUCCESSFULLY'
-        }
-
-        failure {
-            echo 'PIPELINE FAILED - CHECK THE FAILED STAGE'
+        always {
+            echo "Pipeline completed."
         }
     }
 }
