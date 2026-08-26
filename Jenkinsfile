@@ -30,4 +30,28 @@ pipeline {
             }
         }
     }
+    
+    stage('Identify Jenkins Agent') {
+    steps {
+        sh '''
+            echo "===== USER ====="
+            whoami
+
+            echo "===== HOSTNAME ====="
+            hostname
+
+            echo "===== HOSTNAME FQDN ====="
+            hostname -f
+
+            echo "===== JENKINS NODE ====="
+            echo "$NODE_NAME"
+
+            echo "===== WORKSPACE ====="
+            pwd
+
+            echo "===== OS ====="
+            cat /etc/os-release | head
+        '''
+    }
+}
 }
