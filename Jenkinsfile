@@ -16,6 +16,7 @@ pipeline {
                 sh '''
                     echo "===== WORKSPACE ====="
                     pwd
+
                     echo "===== FILES ====="
                     find . -maxdepth 2 -type f | sort
 
@@ -40,7 +41,10 @@ pipeline {
                         exit 1
                     fi
 
+                    echo "===== NODE VERSION ====="
                     node --version
+
+                    echo "===== NPM VERSION ====="
                     npm --version
 
                     npm ci
@@ -50,20 +54,36 @@ pipeline {
 
         stage('Unit Test') {
             steps {
-                sh 'npm test'
+                sh '''
+                    echo "===== UNIT TEST ====="
+                    npm test
+                '''
             }
         }
 
         stage('SonarQube Analysis') {
             steps {
+
                 withSonarQubeEnv('SonarQube') {
-                    sh '''
-                        sonar-scanner \
-                        -Dsonar.projectKey=nodejs-cicd-app \
-                        -Dsonar.sources=. \
-                        -Dsonar.tests=test \
-                        -Dsonar.exclusions=node_modules/**,coverage/**
-                    '''
+
+                    withCredentials([
+                        string(
+                            credentialsId: 'jenkins-token',
+                            variable: 'SONAR_TOKEN'
+                        )
+                    ]) {
+
+                        sh '''
+                            echo "===== SONARQUBE ANALYSIS ====="
+
+                            /usr/local/bin/sonar-scanner \
+                            -Dsonar.projectKey=nodejs-cicd-app \
+                            -Dsonar.sources=. \
+                            -Dsonar.tests=test \
+                            -Dsonar.exclusions=node_modules/**,coverage/** \
+                            -Dsonar.token="$SONAR_TOKEN"
+                        '''
+                    }
                 }
             }
         }
@@ -71,6 +91,8 @@ pipeline {
         stage('Docker Build') {
             steps {
                 sh '''
+                    echo "===== DOCKER BUILD ====="
+
                     docker build \
                     -t amgaikwad20/nodejs-cicd-app:${BUILD_NUMBER} .
                 '''
@@ -80,6 +102,8 @@ pipeline {
         stage('Trivy Scan') {
             steps {
                 sh '''
+                    echo "===== TRIVY SECURITY SCAN ====="
+
                     trivy image \
                     --severity HIGH,CRITICAL \
                     --exit-code 1 \
@@ -90,6 +114,7 @@ pipeline {
 
         stage('Docker Push') {
             steps {
+
                 withCredentials([
                     usernamePassword(
                         credentialsId: 'dockerhub-credentials',
@@ -97,13 +122,20 @@ pipeline {
                         passwordVariable: 'DOCKER_PASSWORD'
                     )
                 ]) {
+
                     sh '''
+                        echo "===== DOCKER LOGIN ====="
+
                         echo "$DOCKER_PASSWORD" | docker login \
                         -u "$DOCKER_USERNAME" \
                         --password-stdin
 
+                        echo "===== DOCKER PUSH ====="
+
                         docker push \
                         amgaikwad20/nodejs-cicd-app:${BUILD_NUMBER}
+
+                        docker logout
                     '''
                 }
             }
@@ -112,13 +144,40 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 sh '''
+                    echo "===== KUBERNETES DEPLOYMENT ====="
+
                     sed -i \
                     "s|image:.*|image: amgaikwad20/nodejs-cicd-app:${BUILD_NUMBER}|" \
                     k8s/deployment.yaml
 
                     kubectl apply -f k8s/
+
+                    echo "===== KUBERNETES RESOURCES ====="
+
+                    kubectl get pods
+                    kubectl get services
                 '''
             }
+        }
+    }
+
+    post {
+
+        success {
+            echo '======================================'
+            echo 'PIPELINE COMPLETED SUCCESSFULLY'
+            echo '======================================'
+        }
+
+        failure {
+            echo '======================================'
+            echo 'PIPELINE FAILED'
+            echo 'Check the failed stage above.'
+            echo '======================================'
+        }
+
+        always {
+            echo "Build Number: ${BUILD_NUMBER}"
         }
     }
 }
