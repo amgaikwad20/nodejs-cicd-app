@@ -1,32 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nodejs-cicd-app
+  name: devsecops-nodejs-app
 spec:
-  replicas: 2
-
+  replicas: 4
   selector:
     matchLabels:
-      app: nodejs-cicd-app
-
+      app: devsecops-nodejs-app
   template:
     metadata:
       labels:
-        app: nodejs-cicd-app
-
+        app: devsecops-nodejs-app
     spec:
       containers:
-        - name: nodejs-cicd-app
-          image: YOUR_DOCKERHUB_USERNAME/nodejs-cicd-app:latest
-
+        - name: devsecops-nodejs-app
+          image: amol20/devsecops-nodejs-app:latest
           ports:
             - containerPort: 3000
-
-          resources:
-            requests:
-              cpu: "100m"
-              memory: "128Mi"
-
-            limits:
-              cpu: "500m"
-              memory: "512Mi"
