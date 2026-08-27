@@ -36,8 +36,8 @@
             steps {
                 withCredentials([
                     string(
-                        credentialsId: 'SONAR_AUTH_TOKEN',
-                        variable: 'SONAR_AUTH_TOKEN'
+                        credentialsId: 'SONAR_TOKEN',
+                        variable: 'SONAR_TOKEN'
                     )
                 ]) {
                     withSonarQubeEnv('SonarQube') {
@@ -46,7 +46,7 @@
                               -Dsonar.projectKey=devsecops-nodejs-app \
                               -Dsonar.sources=. \
                               -Dsonar.host.url=$SONAR_HOST_URL \
-                              -Dsonar.token=$SONAR_AUTH_TOKEN
+                              -Dsonar.token=$SONAR_TOKEN
                         '''
                     }
                 }
