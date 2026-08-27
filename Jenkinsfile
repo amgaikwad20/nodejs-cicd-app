@@ -1,9 +1,12 @@
-    pipeline {
-    agent any
+pipeline {
+    agent {
+        label 'agent-1'
+    }
 
     environment {
         DOCKER_IMAGE = "amol20/devsecops-nodejs-app"
         IMAGE_TAG = "${BUILD_NUMBER}"
+        SONAR_SCANNER = "/opt/sonar-scanner-7.2.0.5079-linux-x64/bin/sonar-scanner"
     }
 
     stages {
@@ -42,7 +45,10 @@
                 ]) {
                     withSonarQubeEnv('SonarQube') {
                         sh '''
-                            sonar-scanner \
+                            echo "Checking SonarScanner..."
+                            ${SONAR_SCANNER} --version
+
+                            ${SONAR_SCANNER} \
                               -Dsonar.projectKey=devsecops-nodejs-app \
                               -Dsonar.sources=. \
                               -Dsonar.host.url=$SONAR_HOST_URL \
@@ -108,11 +114,11 @@
 
     post {
         success {
-            echo 'SUCCESS: Image passed SonarQube and Trivy and was pushed to DockerHub.'
+            echo 'SUCCESS: Image passed tests, SonarQube, Quality Gate and Trivy, and was pushed to DockerHub.'
         }
 
         failure {
-            echo 'FAILED: Check the failed pipeline stage and Jenkins console output.'
+            echo 'FAILED: Check the failed stage.'
         }
     }
 }
