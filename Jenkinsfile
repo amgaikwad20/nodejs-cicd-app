@@ -1,5 +1,5 @@
 pipeline {
-    agent none
+    agent {  label  'agent-1'  }
 
     environment {
         IMAGE_NAME = 'amol20/devsecops-nodejs-app'
