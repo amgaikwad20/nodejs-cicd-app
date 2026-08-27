@@ -51,13 +51,14 @@ pipeline {
         stage('Docker Build') {
             steps {
                 sh '''
-                    docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
-                    docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest
+                    docker build \
+                      -t ${DOCKER_IMAGE}:${DOCKER_TAG} \
+                      -t ${DOCKER_IMAGE}:latest .
                 '''
             }
         }
 
-        stage('Docker Hub Push') {
+        stage('Push to Docker Hub') {
             steps {
                 withCredentials([
                     usernamePassword(
@@ -68,8 +69,8 @@ pipeline {
                 ]) {
                     sh '''
                         echo "$DOCKER_PASSWORD" | docker login \
-                            -u "$DOCKER_USERNAME" \
-                            --password-stdin
+                          --username "$DOCKER_USERNAME" \
+                          --password-stdin
 
                         docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
                         docker push ${DOCKER_IMAGE}:latest
@@ -83,11 +84,11 @@ pipeline {
 
     post {
         success {
-            echo 'Pipeline completed successfully. Docker image pushed to Docker Hub.'
+            echo "SUCCESS: ${DOCKER_IMAGE}:${DOCKER_TAG} pushed to Docker Hub"
         }
 
         failure {
-            echo 'Pipeline failed. Check the console output.'
+            echo "Pipeline failed. Check the failed stage above."
         }
     }
 }
