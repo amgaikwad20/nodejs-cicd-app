@@ -27,13 +27,13 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('YOUR_SONARQUBE_NAME') {
+                withSonarQubeEnv('SonarQube') {
                     sh '''
                         sonar-scanner \
                           -Dsonar.projectKey=devsecops-nodejs-app \
                           -Dsonar.sources=. \
-                          -Dsonar.host.url=$SONAR_HOST_URL \
-                          -Dsonar.token=$SONAR_AUTH_TOKEN
+                          -Dsonar.host.url=http://192.168.187.138:9000 \
+                          -Dsonar.token=$SONAR_TOKEN
                     '''
                 }
             }
