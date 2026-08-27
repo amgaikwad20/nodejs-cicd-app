@@ -1,5 +1,5 @@
 pipeline {
-    agent {  label  'agent-1'  }
+    agent { label 'agent-1' }
 
     environment {
         IMAGE_NAME = 'amol20/devsecops-nodejs-app'
@@ -7,30 +7,25 @@ pipeline {
     }
 
     stages {
-
         stage('Checkout') {
-            agent { label 'agent-1' }
             steps {
                 checkout scm
             }
         }
 
         stage('Install Dependencies') {
-            agent { label 'agent-1' }
             steps {
                 sh 'npm install'
             }
         }
 
         stage('Run Tests') {
-            agent { label 'agent-1' }
             steps {
                 sh 'npm test'
             }
         }
 
         stage('SonarQube Analysis') {
-            agent { label 'agent-1' }
             steps {
                 withSonarQubeEnv('YOUR_SONARQUBE_NAME') {
                     sh '''
@@ -45,9 +40,10 @@ pipeline {
         }
 
         stage('Quality Gate') {
-            agent { label 'agent-1' }
             steps {
-                echo 'Quality Gate temporarily skipped'
+                timeout(time: 1, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
             }
         }
 
@@ -65,7 +61,12 @@ pipeline {
         stage('Trivy Scan') {
             agent { label 'jenkin-worker' }
             steps {
-                echo 'Trivy temporarily skipped for DockerHub push testing'
+                sh '''
+                    trivy image \
+                      --severity HIGH,CRITICAL \
+                      --exit-code 1 \
+                      ${IMAGE_NAME}:${IMAGE_TAG}
+                '''
             }
         }
 
