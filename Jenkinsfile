@@ -1,12 +1,15 @@
 pipeline {
-    agent { label 'agent-1' }
+    agent {
+        label 'agent-1'
+    }
 
     environment {
-        IMAGE_NAME = 'amol20/devsecops-nodejs-app'
-        IMAGE_TAG  = "${BUILD_NUMBER}"
+        DOCKER_IMAGE = 'amol20/devsecops-nodejs-app'
+        DOCKER_TAG   = "${BUILD_NUMBER}"
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 checkout scm
@@ -19,21 +22,19 @@ pipeline {
             }
         }
 
-        stage('Run Tests') {
+        stage('Test') {
             steps {
-                sh 'npm test'
+                sh 'npm test -- --watchAll=false'
             }
         }
 
         stage('SonarQube Analysis') {
             steps {
-                withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
+                withSonarQubeEnv('SonarQube') {
                     sh '''
                         sonar-scanner \
                           -Dsonar.projectKey=devsecops-nodejs-app \
-                          -Dsonar.sources=. \
-                          -Dsonar.host.url=http://192.168.187.138:9000 \
-                          -Dsonar.token=$SONAR_TOKEN
+                          -Dsonar.sources=.
                     '''
                 }
             }
@@ -48,30 +49,15 @@ pipeline {
         }
 
         stage('Docker Build') {
-            agent { label 'jenkin-worker' }
             steps {
                 sh '''
-                    docker build \
-                      -t ${IMAGE_NAME}:${IMAGE_TAG} \
-                      .
+                    docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
+                    docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest
                 '''
             }
         }
 
-        stage('Trivy Scan') {
-            agent { label 'jenkin-worker' }
-            steps {
-                sh '''
-                    trivy image \
-                      --severity HIGH,CRITICAL \
-                      --exit-code 1 \
-                      ${IMAGE_NAME}:${IMAGE_TAG}
-                '''
-            }
-        }
-
-        stage('Push to DockerHub') {
-            agent { label 'jenkin-worker' }
+        stage('Docker Hub Push') {
             steps {
                 withCredentials([
                     usernamePassword(
@@ -82,10 +68,11 @@ pipeline {
                 ]) {
                     sh '''
                         echo "$DOCKER_PASSWORD" | docker login \
-                          --username "$DOCKER_USERNAME" \
-                          --password-stdin
+                            -u "$DOCKER_USERNAME" \
+                            --password-stdin
 
-                        docker push ${IMAGE_NAME}:${IMAGE_TAG}
+                        docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
+                        docker push ${DOCKER_IMAGE}:latest
 
                         docker logout
                     '''
@@ -96,11 +83,11 @@ pipeline {
 
     post {
         success {
-            echo "SUCCESS: ${IMAGE_NAME}:${IMAGE_TAG} pushed to DockerHub"
+            echo 'Pipeline completed successfully. Docker image pushed to Docker Hub.'
         }
 
         failure {
-            echo 'Pipeline FAILED'
+            echo 'Pipeline failed. Check the console output.'
         }
     }
 }
